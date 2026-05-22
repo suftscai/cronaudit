@@ -45,6 +45,29 @@ def render_timeline(jobs: List[CronJob]) -> str:
     return "\n".join(lines)
 
 
+def render_summary(jobs: List[CronJob]) -> str:
+    """Render a short summary table showing active hour counts per job.
+
+    Each row lists the job name and the number of distinct hours during
+    which it is scheduled to run, sorted from most to least active.
+
+    Returns the summary as a multi-line string.
+    """
+    if not jobs:
+        return "(no jobs to display)"
+
+    rows = [(job.name, len(_job_active_hours(job))) for job in jobs]
+    rows.sort(key=lambda r: r[1], reverse=True)
+
+    label_width = max(len(name) for name, _ in rows)
+    lines = [f"{'Job'.ljust(label_width)}  Active hours"]
+    lines.append("-" * (label_width + 14))
+    for name, count in rows:
+        lines.append(f"{name.ljust(label_width)}  {count:>2} / 24")
+
+    return "\n".join(lines)
+
+
 def print_timeline(jobs: List[CronJob]) -> None:
     """Print the 24-hour timeline to stdout."""
     print(render_timeline(jobs))
