@@ -2,48 +2,31 @@
 
 import argparse
 import sys
-
 from cronaudit.loader import load_from_file
 from cronaudit.conflict import detect_conflicts
 from cronaudit.report import print_report
 from cronaudit.visualizer import print_timeline
 from cronaudit.exporter import write_export
-from cronaudit.summarizer import print_summary
+from cronaudit.differ import diff_crontabs
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cronaudit",
-        description="Parse and visualize cron schedules to detect conflicts.",
+        description="Parse and audit cron schedules for conflicts.",
+    )
+    parser.add_argument("file", help="Path to crontab file")
+    parser.add_argument(
+        "--timeline", action="store_true", help="Render an ASCII timeline"
     )
     parser.add_argument(
-        "crontab",
-        help="Path to the crontab file to analyse.",
+        "--export", choices=["json", "csv"], help="Export results in given format"
     )
     parser.add_argument(
-        "--timeline",
-        action="store_true",
-        default=False,
-        help="Render an ASCII timeline of job activity.",
+        "--output", default="cronaudit_export", help="Output filename base (no extension)"
     )
     parser.add_argument(
-        "--export",
-        metavar="FORMAT",
-        choices=["json", "csv"],
-        default=None,
-        help="Export results in the given format (json or csv).",
-    )
-    parser.add_argument(
-        "--output",
-        metavar="FILE",
-        default=None,
-        help="Write export output to FILE instead of stdout.",
-    )
-    parser.add_argument(
-        "--summary",
-        action="store_true",
-        default=False,
-        help="Print a statistical summary of the cron schedule.",
+        "--diff", metavar="OTHER_FILE", help="Diff this crontab against another file"
     )
     return parser
 
@@ -53,10 +36,21 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        jobs = load_from_file(args.crontab)
+        jobs = load_from_file(args.file)
     except (FileNotFoundError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+    if args.diff:
+        try:
+            other_jobs = load_from_file(args.diff)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Error loading diff target: {exc}", file=sys.stderr)
+            return 1
+        from cronaudit.differ import diff_crontabs
+        result = diff_crontabs(jobs, other_jobs)
+        print(str(result))
+        return 0
 
     conflicts = detect_conflicts(jobs)
     print_report(jobs, conflicts)
@@ -64,11 +58,9 @@ def main(argv=None) -> int:
     if args.timeline:
         print_timeline(jobs)
 
-    if args.summary:
-        print_summary(jobs)
-
     if args.export:
-        write_export(jobs, conflicts, fmt=args.export, path=args.output)
+        path = write_export(jobs, conflicts, fmt=args.export, base_name=args.output)
+        print(f"Exported to {path}")
 
     return 0
 
