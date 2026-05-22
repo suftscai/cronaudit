@@ -8,12 +8,13 @@ from cronaudit.conflict import detect_conflicts
 from cronaudit.report import print_report
 from cronaudit.visualizer import print_timeline
 from cronaudit.exporter import write_export
+from cronaudit.summarizer import print_summary
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cronaudit",
-        description="Parse and audit cron schedules for conflicts.",
+        description="Parse and visualize cron schedules to detect conflicts.",
     )
     parser.add_argument(
         "crontab",
@@ -27,15 +28,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--export",
-        metavar="FILE",
+        metavar="FORMAT",
+        choices=["json", "csv"],
         default=None,
-        help="Export results to FILE (.json or .csv).",
+        help="Export results in the given format (json or csv).",
     )
     parser.add_argument(
-        "--no-color",
+        "--output",
+        metavar="FILE",
+        default=None,
+        help="Write export output to FILE instead of stdout.",
+    )
+    parser.add_argument(
+        "--summary",
         action="store_true",
         default=False,
-        help="Disable colored output.",
+        help="Print a statistical summary of the cron schedule.",
     )
     return parser
 
@@ -46,11 +54,8 @@ def main(argv=None) -> int:
 
     try:
         jobs = load_from_file(args.crontab)
-    except FileNotFoundError:
-        print(f"Error: file not found: {args.crontab}", file=sys.stderr)
-        return 1
-    except ValueError as exc:
-        print(f"Error parsing crontab: {exc}", file=sys.stderr)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     conflicts = detect_conflicts(jobs)
@@ -59,16 +64,14 @@ def main(argv=None) -> int:
     if args.timeline:
         print_timeline(jobs)
 
+    if args.summary:
+        print_summary(jobs)
+
     if args.export:
-        try:
-            write_export(args.export, jobs, conflicts)
-            print(f"Results exported to {args.export}")
-        except ValueError as exc:
-            print(f"Export error: {exc}", file=sys.stderr)
-            return 1
+        write_export(jobs, conflicts, fmt=args.export, path=args.output)
 
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     sys.exit(main())
