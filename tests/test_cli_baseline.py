@@ -63,6 +63,18 @@ def test_save_uses_label(tmp_path, crontab_file):
     assert data["label"] == "prod"
 
 
+def test_save_records_all_jobs(tmp_path, crontab_file):
+    """Saved snapshot should contain an entry for every job in the crontab."""
+    out = tmp_path / "snap.json"
+    args = _make_args(crontab=str(crontab_file), save=str(out))
+    _run_baseline(args)
+    data = json.loads(out.read_text())
+    assert len(data["jobs"]) == 2
+    job_names = {job["name"] for job in data["jobs"]}
+    assert "/usr/bin/backup" in job_names
+    assert "/usr/bin/sync" in job_names
+
+
 def test_compare_no_changes(capsys, crontab_file, baseline_file):
     args = _make_args(crontab=str(crontab_file), compare=str(baseline_file))
     rc = _run_baseline(args)
