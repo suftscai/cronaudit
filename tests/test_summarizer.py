@@ -65,6 +65,13 @@ def test_runs_per_hour_multiple_jobs():
     assert rph[9] == 2
 
 
+def test_runs_per_hour_all_hours_zero_for_empty():
+    """An empty job list should produce a dict of 24 zeros."""
+    rph = _runs_per_hour([])
+    assert len(rph) == 24
+    assert all(count == 0 for count in rph.values())
+
+
 # --- summarize ---
 
 def test_summarize_empty_returns_defaults():
@@ -92,6 +99,18 @@ def test_summarize_runs_per_day():
     jobs = [_make_job("0 9 * * *"), _make_job("0 10 * * *")]
     summary = summarize(jobs)
     assert summary.runs_per_day == 2
+
+
+def test_summarize_frequency_counts():
+    """frequency_breakdown should tally classify results for each job."""
+    jobs = [
+        _make_job("* * * * *"),   # every minute
+        _make_job("0 * * * *"),   # every hour
+        _make_job("0 * * * *"),   # every hour (duplicate)
+    ]
+    summary = summarize(jobs)
+    assert summary.frequency_breakdown.get("every minute") == 1
+    assert summary.frequency_breakdown.get("every hour") == 2
 
 
 def test_summary_str_contains_jobs():
