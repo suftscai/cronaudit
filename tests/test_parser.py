@@ -77,3 +77,18 @@ def test_str_representation():
 def test_step_with_range():
     schedule = parse_cron_expression("0 8-20/4 * * *")
     assert schedule.hour == [8, 12, 16, 20]
+
+
+def test_wildcard_expands_all_days_of_month():
+    schedule = parse_cron_expression("* * * * *")
+    assert schedule.day_of_month == list(range(1, 32))
+
+
+def test_wildcard_expands_all_months():
+    schedule = parse_cron_expression("* * * * *")
+    assert schedule.month == list(range(1, 13))
+
+
+def test_wildcard_expands_all_days_of_week():
+    schedule = parse_cron_expression("* * * * *")
+    assert schedule.day_of_week == list(range(0, 7))
